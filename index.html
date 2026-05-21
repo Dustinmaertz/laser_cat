@@ -141,6 +141,35 @@
     z-index: 20;
   }
 
+  #cat-color {
+    position: fixed; bottom: 36px; left: 96px;
+    z-index: 20;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    border: 1px solid rgba(244, 234, 213, 0.3);
+    background: rgba(26, 20, 16, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 6px;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: all 0.3s ease;
+  }
+  #cat-color:hover { border-color: var(--rust); }
+  #cat-color::-webkit-color-swatch-wrapper { padding: 0; }
+  #cat-color::-webkit-color-swatch { border-radius: 50%; border: none; }
+  #cat-color::-moz-color-swatch { border-radius: 50%; border: none; }
+  #cat-color-label {
+    position: fixed; bottom: 14px; left: 96px;
+    width: 56px;
+    text-align: center;
+    font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase;
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 20;
+  }
+
   #joystick {
     position: fixed;
     bottom: 28px;
@@ -232,6 +261,8 @@
     #joystick-knob { width: 44px; height: 44px; margin-top: -22px; margin-left: -22px; }
     #laser-toggle { width: 48px; height: 48px; bottom: 28px; }
     #laser-toggle-label { width: 48px; font-size: 8px; bottom: 10px; }
+    #cat-color { width: 48px; height: 48px; bottom: 28px; left: 80px; }
+    #cat-color-label { width: 48px; left: 80px; font-size: 8px; bottom: 10px; }
     .mode-btn { padding: 6px 10px; font-size: 9px; }
   }
 </style>
@@ -255,6 +286,9 @@
   <div class="dot"></div>
 </button>
 <div id="laser-toggle-label">Laser</div>
+
+<input id="cat-color" type="color" value="#8b5a2b" aria-label="Cat fur color" />
+<div id="cat-color-label">Fur</div>
 
 <div id="joystick">
   <div id="joystick-knob"></div>
@@ -297,7 +331,7 @@ const C = {
   book1:    BABYLON.Color3.FromHexString("#7a3030"),
   book2:    BABYLON.Color3.FromHexString("#3a5a6a"),
   book3:    BABYLON.Color3.FromHexString("#c08040"),
-  cat:      BABYLON.Color3.FromHexString("#3a2a22"),
+  cat:      BABYLON.Color3.FromHexString("#8b5a2b"),
   catBelly: BABYLON.Color3.FromHexString("#d4a374"),
   catNose:  BABYLON.Color3.FromHexString("#d97a6a"),
   window:   BABYLON.Color3.FromHexString("#f0c878"),
@@ -818,6 +852,11 @@ const createScene = () => {
   laserToggle.addEventListener('click', () => {
     laserOn = !laserOn;
     laserToggle.classList.toggle('on', laserOn);
+  });
+
+  const catColorPicker = document.getElementById('cat-color');
+  catColorPicker.addEventListener('input', (e) => {
+    body.material.diffuseColor = BABYLON.Color3.FromHexString(e.target.value);
   });
 
   const updateLaserPosition = (dt) => {
