@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>Pounce — A Laser Pointer Game</title>
+<style>
+  :root {
+    --ink: #1a1410;
+    --cream: #f4ead5;
+    --rust: #c45a3a;
+    --sage: #7a8a6a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #0a0807;
+    overflow: hidden;
+    font-family: 'Georgia', 'Times New Roman', serif;
+    color: var(--cream);
+    touch-action: none;
+    overscroll-behavior: none;
+  }
+  #canvas {
+    width: 100vw; height: 100vh;
+    display: block;
+    touch-action: none;
+  }
+
+  #score-panel {
+    position: fixed; top: 20px; left: 24px;
+    z-index: 10;
+    pointer-events: none;
+  }
+  .label {
+    font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
+    opacity: 0.55; margin-bottom: 4px;
+  }
+  .value {
+    font-size: 22px; font-weight: 400; font-style: italic;
+    letter-spacing: 0.02em;
+  }
+
+  #mode-toggle {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    display: flex;
+    background: rgba(26, 20, 16, 0.55);
+    border: 1px solid rgba(244, 234, 213, 0.25);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 999px;
+    padding: 3px;
+    z-index: 10;
+    pointer-events: auto;
+  }
+  .mode-btn {
+    background: transparent;
+    border: none;
+    color: var(--cream);
+    font-family: 'Georgia', serif;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    cursor: pointer;
+    border-radius: 999px;
+    opacity: 0.55;
+    transition: all 0.25s ease;
+  }
+  .mode-btn.active {
+    background: var(--rust);
+    opacity: 1;
+  }
+
+  #views {
+    position: fixed; top: 20px; right: 24px;
+    display: flex; gap: 6px;
+    pointer-events: auto;
+    z-index: 10;
+    max-width: 30vw;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .view-btn {
+    width: 36px; height: 36px;
+    border: 1px solid rgba(244, 234, 213, 0.3);
+    background: rgba(26, 20, 16, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: var(--cream);
+    font-family: 'Georgia', serif;
+    font-style: italic;
+    font-size: 13px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .view-btn:hover, .view-btn.active {
+    background: rgba(196, 90, 58, 0.85);
+    border-color: var(--rust);
+  }
+
+  #laser-toggle {
+    position: fixed; bottom: 36px; left: 24px;
+    z-index: 20;
+    pointer-events: auto;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    border: 1px solid rgba(244, 234, 213, 0.3);
+    background: rgba(26, 20, 16, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: var(--cream);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.3s ease;
+  }
+  #laser-toggle.on {
+    background: rgba(196, 90, 58, 0.85);
+    border-color: var(--rust);
+    box-shadow: 0 0 24px rgba(196, 90, 58, 0.5);
+  }
+  #laser-toggle .dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--cream);
+    transition: all 0.2s ease;
+  }
+  #laser-toggle.on .dot {
+    background: #fff;
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.9), 0 0 24px rgba(255, 80, 60, 0.9);
+  }
+  #laser-toggle-label {
+    position: fixed; bottom: 14px; left: 24px;
+    width: 56px;
+    text-align: center;
+    font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase;
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 20;
+  }
+
+  #joystick {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    background: rgba(26, 20, 16, 0.4);
+    border: 1px solid rgba(244, 234, 213, 0.25);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 20;
+    touch-action: none;
+    pointer-events: auto;
+    transition: background 0.2s ease, border-color 0.2s ease, opacity 0.3s ease;
+  }
+  #joystick.disabled {
+    opacity: 0.25;
+    pointer-events: none;
+  }
+  #joystick.active {
+    background: rgba(196, 90, 58, 0.25);
+    border-color: rgba(196, 90, 58, 0.7);
+  }
+  #joystick-knob {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 52px; height: 52px;
+    margin-top: -26px; margin-left: -26px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, rgba(244, 234, 213, 0.95), rgba(196, 90, 58, 0.85) 70%);
+    box-shadow: 0 4px 16px rgba(196, 90, 58, 0.4), inset 0 -3px 6px rgba(0,0,0,0.2);
+    pointer-events: none;
+    transition: transform 0.08s ease-out;
+  }
+
+  #mood {
+    position: fixed; bottom: 36px; right: 24px;
+    text-align: right;
+    pointer-events: none;
+    z-index: 10;
+    max-width: 35vw;
+  }
+  #mood .label { margin-bottom: 4px; }
+  #mood .value {
+    font-size: 15px;
+    transition: opacity 0.3s ease;
+  }
+
+  #title-overlay {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at center, #1a1410 0%, #0a0807 80%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 100; cursor: pointer;
+    transition: opacity 0.8s ease;
+  }
+  #title-overlay.hidden { opacity: 0; pointer-events: none; }
+  .title {
+    font-size: clamp(48px, 12vw, 96px);
+    font-style: italic; font-weight: 400;
+    letter-spacing: 0.02em;
+    color: var(--cream);
+    margin-bottom: 8px;
+  }
+  .title .dot { color: var(--rust); }
+  .subtitle {
+    font-size: 12px; letter-spacing: 0.4em; text-transform: uppercase;
+    opacity: 0.5; margin-bottom: 40px;
+  }
+  .start {
+    font-size: 13px; letter-spacing: 0.3em; text-transform: uppercase;
+    border: 1px solid var(--cream); padding: 14px 28px;
+    opacity: 0.8;
+    animation: breathe 2.4s ease-in-out infinite;
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  @media (max-width: 480px) {
+    .value { font-size: 18px; }
+    #mood .value { font-size: 12px; }
+    #mood { max-width: 30vw; }
+    #views .view-btn { width: 30px; height: 30px; font-size: 11px; }
+    #views { gap: 4px; max-width: 32vw; }
+    #joystick { width: 110px; height: 110px; bottom: 24px; }
+    #joystick-knob { width: 44px; height: 44px; margin-top: -22px; margin-left: -22px; }
+    #laser-toggle { width: 48px; height: 48px; bottom: 28px; }
+    #laser-toggle-label { width: 48px; font-size: 8px; bottom: 10px; }
+    .mode-btn { padding: 6px 10px; font-size: 9px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas" touch-action="none"></canvas>
+
+<div id="score-panel">
+  <div class="label">Pounces</div>
+  <div class="value" id="score">0</div>
+</div>
+
+<div id="mode-toggle">
+  <button class="mode-btn active" data-mode="joystick">Joystick</button>
+  <button class="mode-btn" data-mode="touch">Touch</button>
+</div>
+
+<div id="views"></div>
+
+<button id="laser-toggle" aria-label="Toggle laser">
+  <div class="dot"></div>
+</button>
+<div id="laser-toggle-label">Laser</div>
+
+<div id="joystick">
+  <div id="joystick-knob"></div>
+</div>
+
+<div id="mood">
+  <div class="label">The cat is</div>
+  <div class="value" id="mood-text">…</div>
+</div>
+
+<div id="title-overlay">
+  <div class="title">Pounce<span class="dot">.</span></div>
+  <div class="subtitle">a laser pointer story</div>
+  <div class="start">Tap to begin</div>
+</div>
+
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script>
+"use strict";
+
+const canvas = document.getElementById('canvas');
+const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, adaptToDeviceRatio: true });
+
+const C = {
+  floor:    BABYLON.Color3.FromHexString("#9a6f4f"),
+  floorAlt: BABYLON.Color3.FromHexString("#8a6243"),
+  rug:      BABYLON.Color3.FromHexString("#a04030"),
+  rugDark:  BABYLON.Color3.FromHexString("#7a2c20"),
+  wallA:    BABYLON.Color3.FromHexString("#d4a374"),
+  wallB:    BABYLON.Color3.FromHexString("#c08858"),
+  wallC:    BABYLON.Color3.FromHexString("#b9826a"),
+  ceiling:  BABYLON.Color3.FromHexString("#e8d5b0"),
+  sofa:     BABYLON.Color3.FromHexString("#5a7458"),
+  sofaDk:   BABYLON.Color3.FromHexString("#3e5440"),
+  chair:    BABYLON.Color3.FromHexString("#6a4860"),
+  wood:     BABYLON.Color3.FromHexString("#6b4530"),
+  woodLt:   BABYLON.Color3.FromHexString("#8b5e3c"),
+  plant:    BABYLON.Color3.FromHexString("#4a6240"),
+  pot:      BABYLON.Color3.FromHexString("#b8704a"),
+  book1:    BABYLON.Color3.FromHexString("#7a3030"),
+  book2:    BABYLON.Color3.FromHexString("#3a5a6a"),
+  book3:    BABYLON.Color3.FromHexString("#c08040"),
+  cat:      BABYLON.Color3.FromHexString("#3a2a22"),
+  catBelly: BABYLON.Color3.FromHexString("#d4a374"),
+  catNose:  BABYLON.Color3.FromHexString("#d97a6a"),
+  window:   BABYLON.Color3.FromHexString("#f0c878"),
+  counter:  BABYLON.Color3.FromHexString("#d8c0a0"),
+};
+
+const ROOM = { width: 16, depth: 20, height: 5 };
+
+const createScene = () => {
+  const scene = new BABYLON.Scene(engine);
+  scene.clearColor = new BABYLON.Color4(0.04, 0.03, 0.025, 1);
+  scene.ambientColor = new BABYLON.Color3(0.25, 0.22, 0.18);
+  scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
+  scene.fogColor = new BABYLON.Color3(0.04, 0.03, 0.025);
+  scene.fogDensity = 0.015;
+
+  const viewpoints = [
+    { name: "Living Room", pos: new BABYLON.Vector3(-7, 2.4, -8.5),  target: new BABYLON.Vector3(2, 0.5, 3) },
+    { name: "Sofa Side",   pos: new BABYLON.Vector3(7, 2.0, -8),     target: new BABYLON.Vector3(-2, 0.5, 4) },
+    { name: "Floor Level", pos: new BABYLON.Vector3(0, 0.9, -8.5),   target: new BABYLON.Vector3(0, 0.4, 4) },
+    { name: "Kitchen",     pos: new BABYLON.Vector3(-6, 2.0, 8),     target: new BABYLON.Vector3(4, 0.6, 4) },
+    { name: "Window Nook", pos: new BABYLON.Vector3(-7.2, 1.8, 4),   target: new BABYLON.Vector3(2, 0.4, -2) },
+    { name: "Hallway",     pos: new BABYLON.Vector3(7.5, 2.2, 9),    target: new BABYLON.Vector3(-2, 0.3, -4) },
+  ];
+
+  const camera = new BABYLON.UniversalCamera("cam", viewpoints[0].pos, scene);
+  camera.setTarget(viewpoints[0].target);
+  camera.fov = 1.0;
+  camera.minZ = 0.05;
+  camera.inputs.clear();
+
+  // LIGHTING
+  const hemi = new BABYLON.HemisphericLight("hemi", new BABYLON.Vector3(0, 1, 0), scene);
+  hemi.intensity = 0.3;
+  hemi.diffuse = new BABYLON.Color3(0.9, 0.8, 0.7);
+  hemi.groundColor = new BABYLON.Color3(0.15, 0.12, 0.1);
+
+  const sun = new BABYLON.DirectionalLight("sun", new BABYLON.Vector3(0.6, -0.7, 0.4), scene);
+  sun.intensity = 1.3;
+  sun.diffuse = new BABYLON.Color3(1.0, 0.78, 0.52);
+  sun.position = new BABYLON.Vector3(-7, 6, -3);
+
+  const fill1 = new BABYLON.PointLight("fill1", new BABYLON.Vector3(-6, 3, -2), scene);
+  fill1.intensity = 0.35;
+  fill1.diffuse = new BABYLON.Color3(1.0, 0.7, 0.4);
+  fill1.range = 10;
+
+  const fill2 = new BABYLON.PointLight("fill2", new BABYLON.Vector3(4, 3, 6), scene);
+  fill2.intensity = 0.25;
+  fill2.diffuse = new BABYLON.Color3(1.0, 0.75, 0.5);
+  fill2.range = 10;
+
+  const shadowGen = new BABYLON.ShadowGenerator(1024, sun);
+  shadowGen.useBlurExponentialShadowMap = true;
+  shadowGen.blurKernel = 32;
+  shadowGen.darkness = 0.4;
+
+  const mat = (name, color, emissive = 0) => {
+    const m = new BABYLON.StandardMaterial(name, scene);
+    m.diffuseColor = color;
+    m.specularColor = new BABYLON.Color3(0, 0, 0);
+    if (emissive > 0) m.emissiveColor = color.scale(emissive);
+    return m;
+  };
+
+  // SURFACE REGISTRY (furniture the cat can interact with)
+  const surfaces = [];
+  const registerSurface = (mesh, opts) => surfaces.push({ mesh, ...opts });
+
+  // ROOM SHELL
+  const halfW = ROOM.width / 2;
+  const halfD = ROOM.depth / 2;
+
+  const floor = BABYLON.MeshBuilder.CreateGround("floor", { width: ROOM.width, height: ROOM.depth }, scene);
+  floor.material = mat("floorMat", C.floor);
+  floor.receiveShadows = true;
+
+  const kitchenFloor = BABYLON.MeshBuilder.CreateGround("kitchenFloor", { width: 7, height: 8 }, scene);
+  kitchenFloor.position = new BABYLON.Vector3(-3, 0.005, 6);
+  kitchenFloor.material = mat("kitchenFloorMat", C.floorAlt);
+
+  const wallBack = BABYLON.MeshBuilder.CreateBox("wallBack", { width: ROOM.width, height: ROOM.height, depth: 0.2 }, scene);
+  wallBack.position = new BABYLON.Vector3(0, ROOM.height / 2, halfD);
+  wallBack.material = mat("wallBackMat", C.wallA);
+  wallBack.receiveShadows = true;
+
+  const wallLeft = BABYLON.MeshBuilder.CreateBox("wallLeft", { width: 0.2, height: ROOM.height, depth: ROOM.depth }, scene);
+  wallLeft.position = new BABYLON.Vector3(-halfW, ROOM.height / 2, 0);
+  wallLeft.material = mat("wallLeftMat", C.wallB);
+  wallLeft.receiveShadows = true;
+
+  const wallRight = BABYLON.MeshBuilder.CreateBox("wallRight", { width: 0.2, height: ROOM.height, depth: ROOM.depth }, scene);
+  wallRight.position = new BABYLON.Vector3(halfW, ROOM.height / 2, 0);
+  wallRight.material = mat("wallRightMat", C.wallC);
+  wallRight.receiveShadows = true;
+
+  const ceiling = BABYLON.MeshBuilder.CreateBox("ceiling", { width: ROOM.width, height: 0.2, depth: ROOM.depth }, scene);
+  ceiling.position = new BABYLON.Vector3(0, ROOM.height, 0);
+  ceiling.material = mat("ceilingMat", C.ceiling.scale(0.6));
+
+  // WINDOWS
+  const makeWindow = (zPos) => {
+    const frame = BABYLON.MeshBuilder.CreateBox("winFrame", { width: 0.1, height: 2.4, depth: 3.0 }, scene);
+    frame.position = new BABYLON.Vector3(-halfW + 0.08, 2.6, zPos);
+    frame.material = mat("winFrameMat", C.wood);
+    const g = BABYLON.MeshBuilder.CreateBox("winGlow", { width: 0.04, height: 2.2, depth: 2.8 }, scene);
+    g.position = new BABYLON.Vector3(-halfW + 0.12, 2.6, zPos);
+    g.material = mat("winGlowMat", C.window, 1.5);
+    const crossV = BABYLON.MeshBuilder.CreateBox("winCV", { width: 0.05, height: 2.2, depth: 0.08 }, scene);
+    crossV.position = new BABYLON.Vector3(-halfW + 0.13, 2.6, zPos);
+    crossV.material = mat("winCrossMat", C.wood);
+    const crossH = BABYLON.MeshBuilder.CreateBox("winCH", { width: 0.05, height: 0.08, depth: 2.8 }, scene);
+    crossH.position = new BABYLON.Vector3(-halfW + 0.13, 2.6, zPos);
+    crossH.material = crossV.material;
+    return g;
+  };
+  const windowGlow1 = makeWindow(-3);
+  const windowGlow2 = makeWindow(3);
+
+  // SOFA
+  const sofaGroup = new BABYLON.TransformNode("sofaGroup", scene);
+  sofaGroup.position = new BABYLON.Vector3(2, 0, -7);
+  const sofaBase = BABYLON.MeshBuilder.CreateBox("sofaBase", { width: 4.5, height: 0.7, depth: 1.6 }, scene);
+  sofaBase.position.y = 0.35;
+  sofaBase.material = mat("sofaMat", C.sofa);
+  sofaBase.parent = sofaGroup;
+  shadowGen.addShadowCaster(sofaBase);
+  const sofaBack = BABYLON.MeshBuilder.CreateBox("sofaBack", { width: 4.5, height: 1.2, depth: 0.4 }, scene);
+  sofaBack.position = new BABYLON.Vector3(0, 1.0, -0.6);
+  sofaBack.material = mat("sofaBackMat", C.sofaDk);
+  sofaBack.parent = sofaGroup;
+  shadowGen.addShadowCaster(sofaBack);
+  const sofaArmL = BABYLON.MeshBuilder.CreateBox("sofaAL", { width: 0.4, height: 1.0, depth: 1.6 }, scene);
+  sofaArmL.position = new BABYLON.Vector3(-2.05, 0.5, 0);
+  sofaArmL.material = mat("sofaArmMat", C.sofaDk);
+  sofaArmL.parent = sofaGroup;
+  shadowGen.addShadowCaster(sofaArmL);
+  const sofaArmR = sofaArmL.clone("sofaAR");
+  sofaArmR.position.x = 2.05;
+  for (let i = -1; i <= 1; i++) {
+    const cushion = BABYLON.MeshBuilder.CreateBox("cush" + i, { width: 1.35, height: 0.25, depth: 1.3 }, scene);
+    cushion.position = new BABYLON.Vector3(i * 1.4, 0.82, 0);
+    cushion.material = mat("cushMat", C.sofa.scale(1.15));
+    cushion.parent = sofaGroup;
+  }
+  registerSurface(sofaBase, {
+    name: "sofa",
+    topY: 0.95,
+    minX: 2 - 1.8, maxX: 2 + 1.8,
+    minZ: -7 - 0.5, maxZ: -7 + 0.5,
+    jumpable: true, restable: true,
+  });
+
+  // COFFEE TABLE
+  const tableGroup = new BABYLON.TransformNode("tableGroup", scene);
+  tableGroup.position = new BABYLON.Vector3(2, 0, -3.5);
+  const tableTop = BABYLON.MeshBuilder.CreateBox("tableTop", { width: 2.4, height: 0.1, depth: 1.4 }, scene);
+  tableTop.position.y = 0.55;
+  tableTop.material = mat("tableMat", C.wood);
+  tableTop.parent = tableGroup;
+  shadowGen.addShadowCaster(tableTop);
+  tableTop.receiveShadows = true;
+  registerSurface(tableTop, {
+    name: "coffee table",
+    topY: 0.6,
+    minX: 2 - 1, maxX: 2 + 1,
+    minZ: -3.5 - 0.5, maxZ: -3.5 + 0.5,
+    jumpable: true, restable: false,
+  });
+  for (const [x, z] of [[-1, -0.5], [1, -0.5], [-1, 0.5], [1, 0.5]]) {
+    const leg = BABYLON.MeshBuilder.CreateBox("leg", { width: 0.1, height: 0.55, depth: 0.1 }, scene);
+    leg.position = new BABYLON.Vector3(x, 0.275, z);
+    leg.material = mat("legMat", C.wood);
+    leg.parent = tableGroup;
+  }
+  const book1 = BABYLON.MeshBuilder.CreateBox("book1", { width: 0.5, height: 0.06, depth: 0.35 }, scene);
+  book1.position = new BABYLON.Vector3(1.5, 0.63, -3.2);
+  book1.rotation.y = 0.15;
+  book1.material = mat("book1Mat", C.book1);
+  shadowGen.addShadowCaster(book1);
+  const book2 = BABYLON.MeshBuilder.CreateBox("book2", { width: 0.5, height: 0.06, depth: 0.35 }, scene);
+  book2.position = new BABYLON.Vector3(1.5, 0.69, -3.2);
+  book2.material = mat("book2Mat", C.book2);
+  shadowGen.addShadowCaster(book2);
+
+  // ARMCHAIR
+  const chairGroup = new BABYLON.TransformNode("chairGroup", scene);
+  chairGroup.position = new BABYLON.Vector3(-4, 0, -4);
+  chairGroup.rotation.y = -Math.PI / 4;
+  const chairSeat = BABYLON.MeshBuilder.CreateBox("chairSeat", { width: 1.4, height: 0.6, depth: 1.4 }, scene);
+  chairSeat.position.y = 0.3;
+  chairSeat.material = mat("chairMat", C.chair);
+  chairSeat.parent = chairGroup;
+  shadowGen.addShadowCaster(chairSeat);
+  const chairBack = BABYLON.MeshBuilder.CreateBox("chairBack", { width: 1.4, height: 1.2, depth: 0.3 }, scene);
+  chairBack.position = new BABYLON.Vector3(0, 1.0, -0.55);
+  chairBack.material = mat("chairMat2", C.chair.scale(0.8));
+  chairBack.parent = chairGroup;
+  shadowGen.addShadowCaster(chairBack);
+  const chairCush = BABYLON.MeshBuilder.CreateBox("chairCushion", { width: 1.2, height: 0.15, depth: 1.2 }, scene);
+  chairCush.position = new BABYLON.Vector3(0, 0.68, 0.05);
+  chairCush.material = mat("chairCushMat", C.chair.scale(1.2));
+  chairCush.parent = chairGroup;
+  registerSurface(chairSeat, {
+    name: "armchair",
+    topY: 0.78,
+    minX: -4 - 0.7, maxX: -4 + 0.7,
+    minZ: -4 - 0.7, maxZ: -4 + 0.7,
+    jumpable: true, restable: true,
+  });
+
+  // RUG
+  const rugBase = BABYLON.MeshBuilder.CreateBox("rugBase", { width: 6.5, height: 0.02, depth: 4.5 }, scene);
+  rugBase.position = new BABYLON.Vector3(1, 0.012, -4);
+  rugBase.material = mat("rugMat", C.rug);
+  rugBase.receiveShadows = true;
+  const rugInner = BABYLON.MeshBuilder.CreateBox("rugInner", { width: 5.7, height: 0.025, depth: 3.7 }, scene);
+  rugInner.position = new BABYLON.Vector3(1, 0.018, -4);
+  rugInner.material = mat("rugInnerMat", C.rugDark);
+
+  // BOOKSHELF
+  const shelfGroup = new BABYLON.TransformNode("shelfGroup", scene);
+  shelfGroup.position = new BABYLON.Vector3(halfW - 0.3, 0, -7);
+  const shelfBack = BABYLON.MeshBuilder.CreateBox("shelfB", { width: 0.15, height: 3.5, depth: 2.4 }, scene);
+  shelfBack.position.y = 1.75;
+  shelfBack.material = mat("shelfBMat", C.woodLt.scale(0.6));
+  shelfBack.parent = shelfGroup;
+  for (let i = 0; i < 4; i++) {
+    const sh = BABYLON.MeshBuilder.CreateBox("shelf" + i, { width: 0.6, height: 0.06, depth: 2.4 }, scene);
+    sh.position = new BABYLON.Vector3(-0.3, 0.4 + i * 0.85, 0);
+    sh.material = mat("shelfMat", C.woodLt);
+    sh.parent = shelfGroup;
+    shadowGen.addShadowCaster(sh);
+    const colors = [C.book1, C.book2, C.book3, C.sofa, C.rug];
+    let zPos = -1.1;
+    while (zPos < 1.1) {
+      const d = 0.08 + Math.random() * 0.06;
+      const h = 0.5 + Math.random() * 0.2;
+      const book = BABYLON.MeshBuilder.CreateBox("b", { width: 0.5, height: h, depth: d }, scene);
+      book.position = new BABYLON.Vector3(-0.3, 0.4 + i * 0.85 + h/2 + 0.03, zPos + d/2);
+      book.material = mat("bm", colors[Math.floor(Math.random() * colors.length)]);
+      book.parent = shelfGroup;
+      zPos += d + 0.01;
+    }
+  }
+
+  // PLANTS
+  const makePlant = (x, z, scale = 1) => {
+    const g = new BABYLON.TransformNode("plant", scene);
+    g.position = new BABYLON.Vector3(x, 0, z);
+    g.scaling.set(scale, scale, scale);
+    const pot = BABYLON.MeshBuilder.CreateCylinder("pot", { height: 0.6, diameterTop: 0.7, diameterBottom: 0.5 }, scene);
+    pot.position.y = 0.3;
+    pot.material = mat("potMat", C.pot);
+    pot.parent = g;
+    shadowGen.addShadowCaster(pot);
+    for (let i = 0; i < 7; i++) {
+      const leaf = BABYLON.MeshBuilder.CreateSphere("leaf", { diameter: 0.6 + Math.random() * 0.3, segments: 4 }, scene);
+      leaf.position = new BABYLON.Vector3((Math.random() - 0.5) * 0.5, 0.7 + Math.random() * 0.9, (Math.random() - 0.5) * 0.5);
+      leaf.scaling.y = 1.3;
+      leaf.material = mat("leafMat", C.plant.scale(0.85 + Math.random() * 0.3));
+      leaf.parent = g;
+      shadowGen.addShadowCaster(leaf);
+    }
+    return g;
+  };
+  makePlant(-halfW + 1, -8.5);
+  makePlant(halfW - 1.2, -1);
+
+  // KITCHEN
+  const counterGroup = new BABYLON.TransformNode("counterGroup", scene);
+  counterGroup.position = new BABYLON.Vector3(-halfW + 1, 0, 4);
+  const counterBase = BABYLON.MeshBuilder.CreateBox("counterBase", { width: 1.8, height: 0.95, depth: 6 }, scene);
+  counterBase.position.y = 0.475;
+  counterBase.material = mat("counterBaseMat", C.woodLt.scale(0.7));
+  counterBase.parent = counterGroup;
+  shadowGen.addShadowCaster(counterBase);
+  const counterTop = BABYLON.MeshBuilder.CreateBox("counterTop", { width: 2, height: 0.08, depth: 6.2 }, scene);
+  counterTop.position.y = 0.99;
+  counterTop.material = mat("counterTopMat", C.counter);
+  counterTop.parent = counterGroup;
+  shadowGen.addShadowCaster(counterTop);
+  registerSurface(counterTop, {
+    name: "counter",
+    topY: 1.04,
+    minX: -halfW + 1 - 0.9, maxX: -halfW + 1 + 0.9,
+    minZ: 4 - 2.8, maxZ: 4 + 2.8,
+    jumpable: true, restable: false,
+  });
+  const upperCab = BABYLON.MeshBuilder.CreateBox("upperCab", { width: 1.4, height: 1.2, depth: 5 }, scene);
+  upperCab.position = new BABYLON.Vector3(-halfW + 0.8, 3.2, 4);
+  upperCab.material = mat("upperCabMat", C.woodLt.scale(0.8));
+
+  const islandGroup = new BABYLON.TransformNode("islandGroup", scene);
+  islandGroup.position = new BABYLON.Vector3(-1, 0, 5);
+  const islandBase = BABYLON.MeshBuilder.CreateBox("islandBase", { width: 2.2, height: 0.95, depth: 1.4 }, scene);
+  islandBase.position.y = 0.475;
+  islandBase.material = mat("islandBaseMat", C.wood);
+  islandBase.parent = islandGroup;
+  shadowGen.addShadowCaster(islandBase);
+  const islandTop = BABYLON.MeshBuilder.CreateBox("islandTop", { width: 2.4, height: 0.08, depth: 1.6 }, scene);
+  islandTop.position.y = 0.99;
+  islandTop.material = mat("islandTopMat", C.counter);
+  islandTop.parent = islandGroup;
+  shadowGen.addShadowCaster(islandTop);
+  registerSurface(islandTop, {
+    name: "island",
+    topY: 1.04,
+    minX: -1 - 1.1, maxX: -1 + 1.1,
+    minZ: 5 - 0.7, maxZ: 5 + 0.7,
+    jumpable: true, restable: true,
+  });
+  for (let i = 0; i < 2; i++) {
+    const stool = BABYLON.MeshBuilder.CreateCylinder("stool", { height: 0.7, diameterTop: 0.35, diameterBottom: 0.3 }, scene);
+    stool.position = new BABYLON.Vector3(-1 + (i - 0.5) * 1.2, 0.35, 6);
+    stool.material = mat("stoolMat", C.wood);
+    shadowGen.addShadowCaster(stool);
+  }
+  const fridge = BABYLON.MeshBuilder.CreateBox("fridge", { width: 1.2, height: 2.2, depth: 0.8 }, scene);
+  fridge.position = new BABYLON.Vector3(-halfW + 2.5, 1.1, halfD - 0.6);
+  fridge.material = mat("fridgeMat", C.counter.scale(0.95));
+  shadowGen.addShadowCaster(fridge);
+  const stove = BABYLON.MeshBuilder.CreateBox("stove", { width: 1.0, height: 0.95, depth: 0.9 }, scene);
+  stove.position = new BABYLON.Vector3(-halfW + 1.2, 0.475, 1.5);
+  stove.material = mat("stoveMat", new BABYLON.Color3(0.18, 0.16, 0.15));
+  shadowGen.addShadowCaster(stove);
+
+  // CAT
+  const catGroup = new BABYLON.TransformNode("cat", scene);
+  catGroup.position = new BABYLON.Vector3(0, 0, -3);
+
+  const catBodyNode = new BABYLON.TransformNode("catBodyNode", scene);
+  catBodyNode.parent = catGroup;
+
+  const headNode = new BABYLON.TransformNode("headNode", scene);
+  headNode.parent = catBodyNode;
+  headNode.position = new BABYLON.Vector3(0, 0.42, 0.42);
+
+  const body = BABYLON.MeshBuilder.CreateSphere("catBody", { diameterX: 0.5, diameterY: 0.5, diameterZ: 0.9, segments: 8 }, scene);
+  body.position.y = 0.3;
+  body.material = mat("catBodyMat", C.cat);
+  body.parent = catBodyNode;
+  shadowGen.addShadowCaster(body);
+
+  const belly = BABYLON.MeshBuilder.CreateSphere("belly", { diameterX: 0.4, diameterY: 0.35, diameterZ: 0.7, segments: 6 }, scene);
+  belly.position = new BABYLON.Vector3(0, 0.22, 0);
+  belly.material = mat("bellyMat", C.catBelly);
+  belly.parent = catBodyNode;
+
+  const head = BABYLON.MeshBuilder.CreateSphere("head", { diameter: 0.4, segments: 8 }, scene);
+  head.material = body.material;
+  head.parent = headNode;
+  shadowGen.addShadowCaster(head);
+
+  const earL = BABYLON.MeshBuilder.CreateCylinder("earL", { height: 0.18, diameterTop: 0, diameterBottom: 0.14, tessellation: 4 }, scene);
+  earL.position = new BABYLON.Vector3(-0.12, 0.2, 0);
+  earL.rotation.z = 0.2;
+  earL.material = body.material;
+  earL.parent = headNode;
+  const earR = earL.clone("earR");
+  earR.position.x = 0.12;
+  earR.rotation.z = -0.2;
+
+  const eyeL = BABYLON.MeshBuilder.CreateSphere("eyeL", { diameter: 0.06, segments: 6 }, scene);
+  eyeL.position = new BABYLON.Vector3(-0.09, 0.04, 0.16);
+  const eyeMat = mat("eyeMat", new BABYLON.Color3(0.95, 0.85, 0.3), 0.6);
+  eyeL.material = eyeMat;
+  eyeL.parent = headNode;
+  const eyeR = eyeL.clone("eyeR");
+  eyeR.position.x = 0.09;
+
+  const nose = BABYLON.MeshBuilder.CreateSphere("nose", { diameter: 0.05, segments: 4 }, scene);
+  nose.position = new BABYLON.Vector3(0, -0.01, 0.2);
+  nose.material = mat("noseMat", C.catNose);
+  nose.parent = headNode;
+
+  const tailSegments = [];
+  for (let i = 0; i < 5; i++) {
+    const seg = BABYLON.MeshBuilder.CreateSphere("tail" + i, { diameter: 0.12 - i * 0.012, segments: 6 }, scene);
+    seg.material = body.material;
+    seg.parent = catBodyNode;
+    tailSegments.push(seg);
+  }
+
+  const legs = [];
+  for (const [x, z, isFront] of [
+    [-0.18, 0.25, true], [0.18, 0.25, true],
+    [-0.18, -0.25, false], [0.18, -0.25, false],
+  ]) {
+    const leg = BABYLON.MeshBuilder.CreateBox("catLeg", { width: 0.1, height: 0.25, depth: 0.1 }, scene);
+    leg.position = new BABYLON.Vector3(x, 0.12, z);
+    leg.material = body.material;
+    leg.parent = catBodyNode;
+    legs.push({ mesh: leg, baseX: x, baseZ: z, isFront });
+  }
+
+  // LASER
+  const laser = BABYLON.MeshBuilder.CreateSphere("laser", { diameter: 0.16, segments: 12 }, scene);
+  const laserMat = new BABYLON.StandardMaterial("laserMat", scene);
+  laserMat.emissiveColor = new BABYLON.Color3(1, 0.1, 0.05);
+  laserMat.specularColor = new BABYLON.Color3(0, 0, 0);
+  laserMat.disableLighting = true;
+  laser.material = laserMat;
+  laser.position = new BABYLON.Vector3(0, 0.08, 0);
+  laser.isPickable = false;
+  laser.isVisible = false;
+
+  const halo = BABYLON.MeshBuilder.CreateSphere("laserHalo", { diameter: 0.45, segments: 12 }, scene);
+  const haloMat = new BABYLON.StandardMaterial("haloMat", scene);
+  haloMat.diffuseColor = new BABYLON.Color3(0, 0, 0);
+  haloMat.emissiveColor = new BABYLON.Color3(1, 0.15, 0.1);
+  haloMat.specularColor = new BABYLON.Color3(0, 0, 0);
+  haloMat.disableLighting = true;
+  haloMat.alpha = 0.35;
+  haloMat.alphaMode = BABYLON.Engine.ALPHA_ADD;
+  halo.material = haloMat;
+  halo.isPickable = false;
+  halo.isVisible = false;
+
+  const glow = new BABYLON.GlowLayer("glow", scene);
+  glow.intensity = 1.5;
+  glow.addIncludedOnlyMesh(laser);
+  glow.addIncludedOnlyMesh(halo);
+  glow.addIncludedOnlyMesh(windowGlow1);
+  glow.addIncludedOnlyMesh(windowGlow2);
+
+  const laserLight = new BABYLON.PointLight("laserLight", new BABYLON.Vector3(0, 0.3, 0), scene);
+  laserLight.diffuse = new BABYLON.Color3(1, 0.25, 0.15);
+  laserLight.intensity = 0;
+  laserLight.range = 3;
+
+  // PICKABLE SETUP
+  [floor, kitchenFloor, wallBack, wallLeft, wallRight, sofaBase, sofaBack, tableTop, rugBase, rugInner, chairSeat, chairBack, counterTop, counterBase, islandTop, islandBase, fridge, stove, upperCab]
+    .forEach(m => m.isPickable = true);
+  [body, belly, head, earL, earR, eyeL, eyeR, nose, ...tailSegments, ...legs.map(l => l.mesh)]
+    .forEach(m => m.isPickable = false);
+
+  // LASER STATE
+  const laserWorld = new BABYLON.Vector2(0, -3);
+  let laserTarget = new BABYLON.Vector3(0, 0.05, -3);
+  let laserNormal = new BABYLON.Vector3(0, 1, 0);
+  let laserOn = false;
+
+  // CONTROLS
+  let controlMode = 'joystick';
+
+  const joystick = document.getElementById('joystick');
+  const joyKnob = document.getElementById('joystick-knob');
+  let joyActive = false;
+  let joyVec = { x: 0, y: 0 };
+  let joyPointerId = null;
+  const joyRadius = 50;
+  const setJoyVec = (dx, dy) => {
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const clamped = Math.min(len, joyRadius);
+    const nx = len > 0 ? (dx / len) * clamped : 0;
+    const ny = len > 0 ? (dy / len) * clamped : 0;
+    joyKnob.style.transform = `translate(${nx}px, ${ny}px)`;
+    joyVec.x = nx / joyRadius;
+    joyVec.y = ny / joyRadius;
+  };
+  const resetJoy = () => {
+    joyKnob.style.transform = 'translate(0px, 0px)';
+    joyVec.x = 0; joyVec.y = 0;
+    joystick.classList.remove('active');
+    joyActive = false;
+    joyPointerId = null;
+  };
+  joystick.addEventListener('pointerdown', (e) => {
+    joyActive = true;
+    joyPointerId = e.pointerId;
+    joystick.classList.add('active');
+    const r = joystick.getBoundingClientRect();
+    setJoyVec(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2));
+    joystick.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  joystick.addEventListener('pointermove', (e) => {
+    if (!joyActive || e.pointerId !== joyPointerId) return;
+    const r = joystick.getBoundingClientRect();
+    setJoyVec(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2));
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev =>
+    joystick.addEventListener(ev, (e) => { if (e.pointerId === joyPointerId) resetJoy(); }));
+
+  const updateLaserFromPointer = (clientX, clientY) => {
+    const pick = scene.pick(clientX, clientY, (m) => m.isPickable);
+    if (pick && pick.hit) {
+      laserWorld.x = pick.pickedPoint.x;
+      laserWorld.y = pick.pickedPoint.z;
+      laserTarget.copyFrom(pick.pickedPoint);
+      laserNormal.copyFrom(pick.getNormal(true));
+    }
+  };
+  let touchActive = false;
+  canvas.addEventListener('pointerdown', (e) => {
+    if (controlMode !== 'touch' || !laserOn) return;
+    touchActive = true;
+    updateLaserFromPointer(e.clientX, e.clientY);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (controlMode !== 'touch' || !touchActive || !laserOn) return;
+    updateLaserFromPointer(e.clientX, e.clientY);
+  });
+  canvas.addEventListener('pointerup', () => { touchActive = false; });
+
+  document.querySelectorAll('.mode-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      controlMode = btn.dataset.mode;
+      if (controlMode === 'touch') { joystick.classList.add('disabled'); resetJoy(); }
+      else { joystick.classList.remove('disabled'); }
+    });
+  });
+
+  const laserToggle = document.getElementById('laser-toggle');
+  laserToggle.addEventListener('click', () => {
+    laserOn = !laserOn;
+    laserToggle.classList.toggle('on', laserOn);
+  });
+
+  const updateLaserPosition = (dt) => {
+    if (controlMode === 'touch') return;
+    if (!laserOn) return;
+    const speed = 7.0;
+    const camForward = camera.getTarget().subtract(camera.position);
+    camForward.y = 0;
+    if (camForward.lengthSquared() < 0.0001) camForward.set(0, 0, 1);
+    camForward.normalize();
+    const camRight = new BABYLON.Vector3(camForward.z, 0, -camForward.x);
+    const moveX = camRight.x * joyVec.x + camForward.x * (-joyVec.y);
+    const moveZ = camRight.z * joyVec.x + camForward.z * (-joyVec.y);
+    laserWorld.x += moveX * speed * dt;
+    laserWorld.y += moveZ * speed * dt;
+    laserWorld.x = Math.max(-halfW + 0.3, Math.min(halfW - 0.3, laserWorld.x));
+    laserWorld.y = Math.max(-halfD + 0.3, Math.min(halfD - 0.3, laserWorld.y));
+    const rayOrigin = new BABYLON.Vector3(laserWorld.x, 6, laserWorld.y);
+    const downRay = new BABYLON.Ray(rayOrigin, new BABYLON.Vector3(0, -1, 0), 10);
+    const hit = scene.pickWithRay(downRay, (m) => m.isPickable);
+    if (hit && hit.hit) {
+      laserTarget.copyFrom(hit.pickedPoint);
+      laserNormal.copyFrom(hit.getNormal(true));
+    } else {
+      laserTarget.set(laserWorld.x, 0.03, laserWorld.y);
+      laserNormal.set(0, 1, 0);
+    }
+  };
+
+  const surfaceForLaser = () => {
+    for (const s of surfaces) {
+      if (laserTarget.x >= s.minX - 0.1 && laserTarget.x <= s.maxX + 0.1 &&
+          laserTarget.z >= s.minZ - 0.1 && laserTarget.z <= s.maxZ + 0.1 &&
+          Math.abs(laserTarget.y - s.topY) < 0.3) {
+        return s;
+      }
+    }
+    return null;
+  };
+
+  // CAT AI
+  const cat = {
+    state: 'roaming',
+    pos: new BABYLON.Vector3(0, 0, -3),
+    facing: 0,
+    headYaw: 0,
+    headPitch: 0,
+    stateTimer: 0,
+    score: 0,
+    pounceVel: new BABYLON.Vector3(0, 0, 0),
+    yPos: 0,
+    currentSurface: null,
+    targetSurface: null,
+    targetPos: null,
+    legPhase: 0,
+    tailPhase: 0,
+    wigglePhase: 0,
+    crouchAmount: 0,
+    bodyTiltZ: 0,
+    lastLaser: new BABYLON.Vector3(0, 0, 0),
+    laserLastSeenAt: 0,
+    headTargetYaw: 0,
+    headTargetPitch: 0,
+    nextHeadLookTime: 0,
+    _jumpDownTarget: null,
+  };
+
+  const moodEl = document.getElementById('mood-text');
+  const scoreEl = document.getElementById('score');
+  let currentMood = '';
+  const setMood = (m) => { if (m !== currentMood) { currentMood = m; moodEl.textContent = m; } };
+
+  const FOV_HALF = (110 * Math.PI) / 180;
+  const FOV_RANGE = 9;
+  const SENSE_RANGE = 1.5;
+
+  const laserVisibleToCat = () => {
+    if (!laserOn) return { visible: false, dist: Infinity, angle: 0, dx: 0, dz: 0, dy: 0 };
+    const dx = laserTarget.x - cat.pos.x;
+    const dz = laserTarget.z - cat.pos.z;
+    const dy = laserTarget.y - (cat.pos.y + cat.yPos + 0.4);
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    const angleToLaser = Math.atan2(dx, dz);
+    let relAngle = angleToLaser - cat.facing;
+    while (relAngle > Math.PI) relAngle -= 2 * Math.PI;
+    while (relAngle < -Math.PI) relAngle += 2 * Math.PI;
+    const inCone = Math.abs(relAngle) <= FOV_HALF && dist <= FOV_RANGE;
+    const sensed = dist <= SENSE_RANGE;
+    return { visible: inCone || sensed, dist, angle: relAngle, dx, dz, dy };
+  };
+
+  function lerpAngle(a, b, t) {
+    let diff = b - a;
+    while (diff > Math.PI) diff -= 2 * Math.PI;
+    while (diff < -Math.PI) diff += 2 * Math.PI;
+    return a + diff * t;
+  }
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  const pickRoamTarget = () => {
+    const r = Math.random();
+    if (r < 0.45) {
+      const candidates = surfaces.filter(s => s.restable);
+      if (candidates.length > 0) {
+        const s = candidates[Math.floor(Math.random() * candidates.length)];
+        return {
+          x: (s.minX + s.maxX) / 2 + (Math.random() - 0.5) * (s.maxX - s.minX) * 0.5,
+          z: (s.minZ + s.maxZ) / 2 + (Math.random() - 0.5) * (s.maxZ - s.minZ) * 0.5,
+          surface: s,
+        };
+      }
+    }
+    return {
+      x: (Math.random() - 0.5) * (ROOM.width - 3),
+      z: (Math.random() - 0.5) * (ROOM.depth - 3),
+      surface: null,
+    };
+  };
+
+  const updateCat = (dt) => {
+    cat.stateTimer += dt;
+    const vis = laserVisibleToCat();
+    const laserSpeed = laserTarget.subtract(cat.lastLaser).length();
+    cat.lastLaser.copyFrom(laserTarget);
+    const laserOnHoriz = laserNormal.y > 0.5;
+
+    const engagedStates = new Set(['watching', 'stalking', 'chasing', 'crouching', 'pouncing', 'jumpingUp', 'jumpingDown', 'recovering']);
+
+    if (vis.visible && laserOn && laserOnHoriz && !engagedStates.has(cat.state) && cat.state !== 'jumpingUp' && cat.state !== 'jumpingDown') {
+      if (cat.state === 'onSurface' && !surfaceForLaser()) {
+        // Laser on floor — jump down to chase
+        cat.state = 'jumpingDown';
+        cat.stateTimer = 0;
+      } else if (cat.state !== 'onSurface') {
+        cat.state = 'watching';
+        cat.stateTimer = 0;
+        cat.targetPos = null;
+        cat.targetSurface = null;
+      }
+    }
+    if ((!laserOn || !vis.visible) && engagedStates.has(cat.state) &&
+        cat.state !== 'pouncing' && cat.state !== 'jumpingUp' && cat.state !== 'jumpingDown') {
+      cat.laserLastSeenAt += dt;
+      if (cat.laserLastSeenAt > 1.5) {
+        cat.state = 'looking';
+        cat.stateTimer = 0;
+        cat.laserLastSeenAt = 0;
+      }
+    } else {
+      cat.laserLastSeenAt = 0;
+    }
+
+    switch (cat.state) {
+      case 'roaming':
+        setMood('roaming around');
+        if (cat.stateTimer > 0.8) {
+          const tgt = pickRoamTarget();
+          cat.targetPos = new BABYLON.Vector3(tgt.x, 0, tgt.z);
+          cat.targetSurface = tgt.surface;
+          cat.state = 'walkingTo';
+          cat.stateTimer = 0;
+        }
+        if (performance.now() > cat.nextHeadLookTime) {
+          cat.headTargetYaw = (Math.random() - 0.5) * 0.8;
+          cat.headTargetPitch = (Math.random() - 0.5) * 0.2;
+          cat.nextHeadLookTime = performance.now() + 1500 + Math.random() * 2500;
+        }
+        break;
+
+      case 'walkingTo': {
+        setMood(cat.targetSurface ? 'heading to the ' + cat.targetSurface.name : 'wandering');
+        const dx = cat.targetPos.x - cat.pos.x;
+        const dz = cat.targetPos.z - cat.pos.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist < 0.6) {
+          if (cat.targetSurface && cat.targetSurface.jumpable && !cat.currentSurface) {
+            cat.state = 'jumpingUp';
+            cat.stateTimer = 0;
+            const tx = clamp(cat.targetPos.x, cat.targetSurface.minX + 0.2, cat.targetSurface.maxX - 0.2);
+            const tz = clamp(cat.targetPos.z, cat.targetSurface.minZ + 0.2, cat.targetSurface.maxZ - 0.2);
+            cat.pounceVel.x = (tx - cat.pos.x) / 0.55;
+            cat.pounceVel.z = (tz - cat.pos.z) / 0.55;
+          } else {
+            cat.state = 'resting';
+            cat.stateTimer = 0;
+          }
+        } else {
+          const targetFacing = Math.atan2(dx, dz);
+          cat.facing = lerpAngle(cat.facing, targetFacing, 0.08);
+          const speed = 1.4;
+          cat.pos.x += Math.sin(cat.facing) * speed * dt;
+          cat.pos.z += Math.cos(cat.facing) * speed * dt;
+          cat.headTargetYaw *= 0.9;
+          cat.headTargetPitch *= 0.9;
+        }
+        break;
+      }
+
+      case 'resting':
+        setMood(cat.currentSurface ? 'lounging on the ' + cat.currentSurface.name : 'lying down');
+        if (performance.now() > cat.nextHeadLookTime) {
+          cat.headTargetYaw = (Math.random() - 0.5) * 1.0;
+          cat.headTargetPitch = (Math.random() - 0.5) * 0.3;
+          cat.nextHeadLookTime = performance.now() + 2500 + Math.random() * 4000;
+        }
+        if (cat.stateTimer > 6 + Math.random() * 8) {
+          if (cat.currentSurface) { cat.state = 'jumpingDown'; cat.stateTimer = 0; }
+          else { cat.state = 'roaming'; cat.stateTimer = 0; }
+        }
+        break;
+
+      case 'watching':
+        setMood('watching');
+        if (vis.visible && laserOnHoriz) {
+          const targetFacing = Math.atan2(vis.dx, vis.dz);
+          cat.facing = lerpAngle(cat.facing, targetFacing, 0.1);
+          cat.headTargetYaw = clamp(vis.angle, -0.3, 0.3) * 0.5;
+          cat.headTargetPitch = clamp(-vis.dy * 0.5, -0.3, 0.3);
+          if (vis.dist < 1.3 && cat.stateTimer > 0.3) {
+            cat.state = 'crouching';
+            cat.stateTimer = 0;
+          } else if (vis.dist < 6 && cat.stateTimer > 0.4) {
+            cat.state = (laserSpeed > 0.06 || vis.dist > 2.5) ? 'chasing' : 'stalking';
+            cat.stateTimer = 0;
+          }
+        }
+        break;
+
+      case 'stalking':
+        setMood('stalking');
+        if (vis.visible && laserOnHoriz) {
+          const targetFacing = Math.atan2(vis.dx, vis.dz);
+          cat.facing = lerpAngle(cat.facing, targetFacing, 0.1);
+          cat.headTargetYaw = 0;
+          cat.headTargetPitch = -0.1;
+          const speed = 1.3;
+          cat.pos.x += Math.sin(cat.facing) * speed * dt;
+          cat.pos.z += Math.cos(cat.facing) * speed * dt;
+          if (vis.dist < 1.3) { cat.state = 'crouching'; cat.stateTimer = 0; }
+          else if (laserSpeed > 0.15 || vis.dist > 3.5) { cat.state = 'chasing'; cat.stateTimer = 0; }
+        }
+        break;
+
+      case 'chasing': {
+        setMood('chasing');
+        if (vis.visible && laserOnHoriz) {
+          const targetFacing = Math.atan2(vis.dx, vis.dz);
+          cat.facing = lerpAngle(cat.facing, targetFacing, 0.2);
+          cat.headTargetYaw = 0;
+          cat.headTargetPitch = -0.05;
+          const laserSurf = surfaceForLaser();
+          if (laserSurf && laserSurf.jumpable && !cat.currentSurface && vis.dist < 2.5) {
+            cat.state = 'jumpingUp';
+            cat.stateTimer = 0;
+            cat.targetSurface = laserSurf;
+            const tx = clamp(laserTarget.x, laserSurf.minX + 0.2, laserSurf.maxX - 0.2);
+            const tz = clamp(laserTarget.z, laserSurf.minZ + 0.2, laserSurf.maxZ - 0.2);
+            cat.pounceVel.x = (tx - cat.pos.x) / 0.55;
+            cat.pounceVel.z = (tz - cat.pos.z) / 0.55;
+            break;
+          }
+          const speed = Math.min(4.5, 2.5 + vis.dist * 0.4);
+          cat.pos.x += Math.sin(cat.facing) * speed * dt;
+          cat.pos.z += Math.cos(cat.facing) * speed * dt;
+          if (vis.dist < 1.4) { cat.state = 'crouching'; cat.stateTimer = 0; }
+        }
+        break;
+      }
+
+      case 'crouching':
+        setMood('about to pounce…');
+        if (vis.visible && laserOnHoriz) {
+          const targetFacing = Math.atan2(vis.dx, vis.dz);
+          cat.facing = lerpAngle(cat.facing, targetFacing, 0.25);
+        }
+        if (cat.stateTimer > 0.65) {
+          cat.state = 'pouncing';
+          cat.stateTimer = 0;
+          const pdx = laserTarget.x - cat.pos.x;
+          const pdz = laserTarget.z - cat.pos.z;
+          const pdist = Math.sqrt(pdx * pdx + pdz * pdz);
+          const launchSpeed = Math.max(3.5, Math.min(7, pdist * 4));
+          const norm = 1 / Math.max(pdist, 0.001);
+          cat.pounceVel.x = pdx * norm * launchSpeed;
+          cat.pounceVel.z = pdz * norm * launchSpeed;
+        } else if (vis.dist > 2.8) {
+          cat.state = 'chasing';
+          cat.stateTimer = 0;
+        }
+        break;
+
+      case 'pouncing': {
+        setMood('POUNCING!');
+        cat.pos.x += cat.pounceVel.x * dt;
+        cat.pos.z += cat.pounceVel.z * dt;
+        const p = cat.stateTimer / 0.45;
+        cat.yPos = Math.sin(p * Math.PI) * 0.55;
+        if (cat.stateTimer > 0.45) {
+          cat.yPos = 0;
+          const fdx = laserTarget.x - cat.pos.x;
+          const fdz = laserTarget.z - cat.pos.z;
+          const fdist = Math.sqrt(fdx * fdx + fdz * fdz);
+          if (fdist < 0.6 && laserOn && laserOnHoriz) {
+            cat.score++;
+            scoreEl.textContent = cat.score;
+            setMood('GOTCHA!');
+            cat.state = 'recovering';
+            cat.stateTimer = -0.6;
+          } else {
+            cat.state = 'recovering';
+            cat.stateTimer = 0;
+          }
+        }
+        break;
+      }
+
+      case 'jumpingUp': {
+        setMood('jumping up!');
+        cat.pos.x += cat.pounceVel.x * dt;
+        cat.pos.z += cat.pounceVel.z * dt;
+        const dur = 0.55;
+        const p = cat.stateTimer / dur;
+        const surfY = cat.targetSurface ? cat.targetSurface.topY : 0;
+        cat.yPos = surfY * p + Math.sin(p * Math.PI) * 0.6;
+        if (cat.stateTimer > dur) {
+          cat.yPos = surfY;
+          cat.currentSurface = cat.targetSurface;
+          cat.pos.x = clamp(cat.pos.x, cat.targetSurface.minX + 0.2, cat.targetSurface.maxX - 0.2);
+          cat.pos.z = clamp(cat.pos.z, cat.targetSurface.minZ + 0.2, cat.targetSurface.maxZ - 0.2);
+          const fdx = laserTarget.x - cat.pos.x;
+          const fdz = laserTarget.z - cat.pos.z;
+          const fdist = Math.sqrt(fdx * fdx + fdz * fdz);
+          if (fdist < 0.7 && laserOn && laserOnHoriz &&
+              Math.abs(laserTarget.y - cat.targetSurface.topY) < 0.3) {
+            cat.score++;
+            scoreEl.textContent = cat.score;
+            setMood('GOTCHA! (from above)');
+            cat.state = 'recovering';
+            cat.stateTimer = -0.6;
+          } else {
+            cat.state = 'onSurface';
+            cat.stateTimer = 0;
+          }
+        }
+        break;
+      }
+
+      case 'onSurface': {
+        if (vis.visible && laserOn && laserOnHoriz && cat.currentSurface) {
+          const laserSurf = surfaceForLaser();
+          if (laserSurf === cat.currentSurface) {
+            setMood('chasing on the ' + cat.currentSurface.name);
+            const targetFacing = Math.atan2(vis.dx, vis.dz);
+            cat.facing = lerpAngle(cat.facing, targetFacing, 0.2);
+            const speed = 2.0;
+            cat.pos.x += Math.sin(cat.facing) * speed * dt;
+            cat.pos.z += Math.cos(cat.facing) * speed * dt;
+            cat.pos.x = clamp(cat.pos.x, cat.currentSurface.minX + 0.2, cat.currentSurface.maxX - 0.2);
+            cat.pos.z = clamp(cat.pos.z, cat.currentSurface.minZ + 0.2, cat.currentSurface.maxZ - 0.2);
+            if (vis.dist < 0.7) {
+              cat.score++;
+              scoreEl.textContent = cat.score;
+              setMood('GOTCHA!');
+              cat.state = 'recovering';
+              cat.stateTimer = -0.6;
+            }
+          } else {
+            cat.state = 'jumpingDown';
+            cat.stateTimer = 0;
+          }
+        } else {
+          setMood('on the ' + cat.currentSurface.name);
+          if (cat.stateTimer > 2 + Math.random() * 4) {
+            if (cat.currentSurface.restable) { cat.state = 'resting'; cat.stateTimer = 0; }
+            else { cat.state = 'jumpingDown'; cat.stateTimer = 0; }
+          }
+          if (performance.now() > cat.nextHeadLookTime) {
+            cat.headTargetYaw = (Math.random() - 0.5) * 0.8;
+            cat.headTargetPitch = (Math.random() - 0.5) * 0.3;
+            cat.nextHeadLookTime = performance.now() + 2000 + Math.random() * 3000;
+          }
+        }
+        break;
+      }
+
+      case 'jumpingDown': {
+        setMood('jumping down');
+        if (!cat._jumpDownTarget) {
+          const surf = cat.currentSurface;
+          const cx = (surf.minX + surf.maxX) / 2;
+          const cz = (surf.minZ + surf.maxZ) / 2;
+          const ang = Math.atan2(cat.pos.x - cx, cat.pos.z - cz);
+          cat._jumpDownTarget = new BABYLON.Vector3(
+            cat.pos.x + Math.sin(ang) * 1.2, 0,
+            cat.pos.z + Math.cos(ang) * 1.2
+          );
+          cat.pounceVel.x = (cat._jumpDownTarget.x - cat.pos.x) / 0.55;
+          cat.pounceVel.z = (cat._jumpDownTarget.z - cat.pos.z) / 0.55;
+        }
+        cat.pos.x += cat.pounceVel.x * dt;
+        cat.pos.z += cat.pounceVel.z * dt;
+        const dur = 0.55;
+        const p = cat.stateTimer / dur;
+        const startY = cat.currentSurface.topY;
+        cat.yPos = startY * (1 - p) + Math.sin(p * Math.PI) * 0.3;
+        if (cat.stateTimer > dur) {
+          cat.yPos = 0;
+          cat.currentSurface = null;
+          cat._jumpDownTarget = null;
+          cat.state = (vis.visible && laserOn) ? 'watching' : 'roaming';
+          cat.stateTimer = 0;
+        }
+        break;
+      }
+
+      case 'recovering':
+        setMood(cat.stateTimer < 0 ? 'triumphant' : 'catching breath');
+        if (cat.stateTimer > 0.7) {
+          if (cat.currentSurface) cat.state = 'onSurface';
+          else cat.state = (vis.visible && laserOn) ? 'watching' : 'roaming';
+          cat.stateTimer = 0;
+        }
+        break;
+
+      case 'looking':
+        setMood('looking for it…');
+        if (cat.stateTimer < 0.5) cat.headTargetYaw = -0.6;
+        else if (cat.stateTimer < 1.0) cat.headTargetYaw = 0.6;
+        else if (cat.stateTimer < 1.5) { cat.facing += dt * 1.0; cat.headTargetYaw = 0; }
+        else { cat.state = 'roaming'; cat.stateTimer = 0; }
+        if (vis.visible && laserOn) { cat.state = 'watching'; cat.stateTimer = 0; }
+        break;
+    }
+
+    cat.pos.x = clamp(cat.pos.x, -halfW + 0.5, halfW - 0.5);
+    cat.pos.z = clamp(cat.pos.z, -halfD + 0.5, halfD - 0.5);
+
+    catGroup.position.x = cat.pos.x;
+    catGroup.position.y = cat.yPos;
+    catGroup.position.z = cat.pos.z;
+    catGroup.rotation.y = cat.facing;
+
+    cat.headYaw += (cat.headTargetYaw - cat.headYaw) * Math.min(1, dt * 6);
+    cat.headPitch += (cat.headTargetPitch - cat.headPitch) * Math.min(1, dt * 6);
+    headNode.rotation.y = cat.headYaw;
+    headNode.rotation.x = cat.headPitch;
+
+    const moving = ['stalking', 'chasing', 'walkingTo'].includes(cat.state) ||
+                   (cat.state === 'onSurface' && cat.stateTimer < 1.5 && vis.visible);
+    if (moving) {
+      const speed = cat.state === 'chasing' ? 14 : 6;
+      cat.legPhase += dt * speed;
+      legs.forEach((l) => {
+        const phase = cat.legPhase + (l.isFront ? 0 : Math.PI) + (l.baseX < 0 ? 0 : Math.PI * 0.5);
+        l.mesh.position.y = 0.12 + Math.abs(Math.sin(phase)) * 0.05;
+      });
+    } else {
+      legs.forEach(l => l.mesh.position.y = 0.12);
+    }
+
+    const targetCrouch =
+      cat.state === 'crouching' ? 1.0 :
+      cat.state === 'stalking' ? 0.5 :
+      cat.state === 'resting' ? 0.7 : 0;
+    cat.crouchAmount += (targetCrouch - cat.crouchAmount) * Math.min(1, dt * 8);
+    catBodyNode.position.y = -0.1 * cat.crouchAmount;
+
+    const restRoll = cat.state === 'resting' ? 0.25 : 0;
+    cat.bodyTiltZ += (restRoll - cat.bodyTiltZ) * Math.min(1, dt * 3);
+
+    if (cat.state === 'crouching') {
+      cat.wigglePhase += dt * 16;
+      const wiggleAmp = 0.04 * Math.min(1, cat.stateTimer / 0.2);
+      catBodyNode.rotation.z = Math.sin(cat.wigglePhase) * wiggleAmp * 1.5;
+      catBodyNode.rotation.y = Math.sin(cat.wigglePhase * 0.5) * wiggleAmp * 0.8;
+      catBodyNode.rotation.x = -0.08 * Math.min(1, cat.stateTimer / 0.3);
+    } else {
+      catBodyNode.rotation.z += (cat.bodyTiltZ - catBodyNode.rotation.z) * Math.min(1, dt * 4);
+      catBodyNode.rotation.y *= 0.85;
+      catBodyNode.rotation.x *= 0.85;
+    }
+
+    const tailSpeed =
+      cat.state === 'crouching' ? 12 :
+      cat.state === 'pouncing' ? 8 :
+      (cat.state === 'jumpingUp' || cat.state === 'jumpingDown') ? 6 :
+      cat.state === 'chasing' ? 7 :
+      cat.state === 'stalking' ? 2 :
+      cat.state === 'resting' ? 1.2 : 3;
+    cat.tailPhase += dt * tailSpeed;
+    const tailAmp =
+      cat.state === 'crouching' ? 0.18 :
+      cat.state === 'stalking' ? 0.04 :
+      cat.state === 'resting' ? 0.04 :
+      cat.state === 'pouncing' ? 0.12 : 0.08;
+    for (let i = 0; i < tailSegments.length; i++) {
+      const t = (i + 1) / tailSegments.length;
+      const swish = Math.sin(cat.tailPhase - i * 0.5) * tailAmp * t;
+      tailSegments[i].position.x = swish;
+      tailSegments[i].position.y = 0.35 + t * 0.15 + Math.sin(cat.tailPhase * 0.7) * 0.02 * t;
+      tailSegments[i].position.z = -0.45 - t * 0.5;
+    }
+
+    if (vis.visible && laserOn) {
+      const localX = Math.cos(cat.facing) * vis.dx - Math.sin(cat.facing) * vis.dz;
+      const eyeOffset = clamp(localX * 0.01, -0.02, 0.02);
+      eyeL.position.x = -0.09 + eyeOffset;
+      eyeR.position.x = 0.09 + eyeOffset;
+    }
+  };
+
+  const updateLaser = (dt) => {
+    if (!laserOn) {
+      laser.isVisible = false;
+      halo.isVisible = false;
+      laserLight.intensity = 0;
+      return;
+    }
+    laser.isVisible = true;
+    halo.isVisible = true;
+    const offset = laserNormal.scale(0.08);
+    const targetPos = laserTarget.add(offset);
+    laser.position = BABYLON.Vector3.Lerp(laser.position, targetPos, 0.7);
+    halo.position.copyFrom(laser.position);
+    laserLight.position.copyFrom(laser.position);
+    laserLight.position.addInPlace(laserNormal.scale(0.2));
+    laserLight.intensity = 1.3 + Math.sin(performance.now() * 0.012) * 0.3;
+    const t = performance.now() * 0.004;
+    const corePulse = 1 + Math.sin(t * 3) * 0.1;
+    laser.scaling.set(corePulse, corePulse, corePulse);
+    const haloPulse = 1 + Math.sin(t * 2) * 0.3;
+    halo.scaling.set(haloPulse, haloPulse, haloPulse);
+    haloMat.alpha = 0.3 + Math.sin(t * 2) * 0.15;
+  };
+
+  // VIEW SWITCHING
+  const viewsEl = document.getElementById('views');
+  viewpoints.forEach((v, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'view-btn' + (i === 0 ? ' active' : '');
+    btn.textContent = ['I', 'II', 'III', 'IV', 'V', 'VI'][i] || (i + 1);
+    btn.title = v.name;
+    btn.addEventListener('click', () => {
+      viewsEl.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      switchView(i);
+    });
+    viewsEl.appendChild(btn);
+  });
+
+  const switchView = (i) => {
+    const v = viewpoints[i];
+    BABYLON.Animation.CreateAndStartAnimation(
+      "camMove", camera, "position", 60, 30, camera.position.clone(), v.pos.clone(),
+      BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT, new BABYLON.CubicEase()
+    );
+    const startT = camera.getTarget().clone();
+    const endT = v.target;
+    let t = 0;
+    const obs = scene.onBeforeRenderObservable.add(() => {
+      t += engine.getDeltaTime() / 500;
+      if (t >= 1) {
+        camera.setTarget(endT);
+        scene.onBeforeRenderObservable.remove(obs);
+      } else {
+        camera.setTarget(BABYLON.Vector3.Lerp(startT, endT, t));
+      }
+    });
+  };
+
+  scene.onBeforeRenderObservable.add(() => {
+    const dt = Math.min(0.05, engine.getDeltaTime() / 1000);
+    updateLaserPosition(dt);
+    updateCat(dt);
+    updateLaser(dt);
+  });
+
+  return scene;
+};
+
+const scene = createScene();
+engine.runRenderLoop(() => scene.render());
+window.addEventListener('resize', () => engine.resize());
+
+document.getElementById('title-overlay').addEventListener('click', () => {
+  document.getElementById('title-overlay').classList.add('hidden');
+});
+</script>
+</body>
+</html>
